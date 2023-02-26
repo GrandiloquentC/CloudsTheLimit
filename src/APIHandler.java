@@ -21,27 +21,28 @@ public class APIHandler {
      */
     public static String addImage(File imagefile, String subject) throws IOException {
 
+        // Payload: image
+        RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
+        .addFormDataPart("file",imagefile.getAbsolutePath(),
+            RequestBody.create(imagefile, MediaType.parse("application/octet-stream"))
+            )
+        .build();
 
-            RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
-            .addFormDataPart("file","img.jpg",
-                RequestBody.create(imagefile, MediaType.parse("application/octet-stream"))
-                )
-            .build();
+        // actual request
+        Request request = new Request.Builder()
+        .url(webbase + "/api/v1/recognition/faces?subject=" + subject)
+        .method("POST", body)
+        .addHeader("Content-Type", "multipart/form-data")
+        .addHeader("x-api-key", apiKeyDatabase)
+        .build();
+        
+        Response response = client.newCall(request).execute();
 
-            Request request = new Request.Builder()
-            .url(webbase + "/api/v1/recognition/faces?subject=" + subject)
-            .method("POST", body)
-            .addHeader("Content-Type", "multipart/form-data")
-            .addHeader("x-api-key", apiKeyDatabase)
-            .build();
-            
-            Response response = client.newCall(request).execute();
-
-            if (!response.isSuccessful()) {
-                return "Request failed with code " + Integer.toString(response.code()) + ".";
-            }
-            JSONObject json = new JSONObject(response.body().string());
-            return json.get("image_id").toString();
+        if (!response.isSuccessful()) {
+            return "Request failed with code " + Integer.toString(response.code()) + ".";
+        }
+        JSONObject json = new JSONObject(response.body().string());
+        return json.get("image_id").toString();
     }
 
     public static boolean renameSubject(String subject, String updatedName) throws IOException {
@@ -64,28 +65,39 @@ public class APIHandler {
             return json.get("updated").toString() == "true";
     }
 
-    public static boolean verify(File compare, String subject, Double _threshold) throws IOException{
+    /*
+        * Verifies that the image is in fact an image of the subject.
+        * @param _threshold Value needed to return success.
+        * @param compare File object of the image.
+        */
+    public static boolean verify(File compare, String subject, Double _threshold) throws IOException {
 
-            Request request = new Request.Builder()
-            .url(webbase + "/api/v1/recognition/faces?subject=" + subject)
-            .addHeader("x-api-key", apiKeyDatabase)
-            .build();
-            
-            Response response = client.newCall(request).execute();
+        // request: fetches all image ids of target subject
+        Request request = new Request.Builder()
+        .url(webbase + "/api/v1/recognition/faces?subject=" + subject)
+        .addHeader("x-api-key", apiKeyDatabase)
+        .build();
+        
+        Response response = client.newCall(request).execute();
 
-            if (!response.isSuccessful()) {
-                return false;
-            }
-            JSONObject json = new JSONObject(response.body().string());
-            JSONArray faces = (JSONArray) json.get("faces");
-            String[] imageids = new String[json.getInt("total_elements")];
-            for (int i = 0; i < json.getInt("total_elements"); i++) {
-                imageids[i] = ((JSONObject) faces.get(i)).getString("image_id");
-            }
+        if (!response.isSuccessful()) {
+            return false;
+        }
 
-            for (String id : imageids) {
+        // extract all image ids from json
+        JSONObject json = new JSONObject(response.body().string());
+        JSONArray faces = (JSONArray) json.get("faces");
+        String[] imageids = new String[json.getInt("total_elements")];
+        for (int i = 0; i < json.getInt("total_elements"); i++) {
+            imageids[i] = ((JSONObject) faces.get(i)).getString("image_id");
+        }
+
+        // iterate over image ids 
+        for (String id : imageids) {
+            try {
+                // payload: image 
                 RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("file","img.jpg",
+                .addFormDataPart("file",compare.getAbsolutePath(),
                     RequestBody.create(compare, MediaType.parse("application/octet-stream"))
                     )
                 .build();
@@ -100,18 +112,24 @@ public class APIHandler {
                 response = client.newCall(request).execute();
 
                 json = new JSONObject(response.body().string());
+
+                // get similarity as double
                 double similarity = ((JSONObject)((JSONArray)json.get("result")).get(0)).getDouble("similarity");
-                System.out.println(similarity);
+
+                // add code here to get pose for pose tracking
 
                 if (!(similarity >= _threshold)) {
                     return false;
                 }
+            } catch (Exception e) {
+                return false;
             }
-            return true;
+        }
+        return true;
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println(verify(new File("src/assets/robert.jpg"), "Calvin", 0.97));
+        System.out.println(verify(new File("src/assets/calvin.jpg"), "Calvin", 0.97));
             //System.out.println(addImage(new File("src/calvin.jpg"), "a"));
             //System.out.println(renameSubject("Calvin", "Alex"));
             /*File file = new File("C:\\Users\\overk\\OneDrive\\Documents\\GitHub\\CloudsTheLimit\\src\\img.jpg");
