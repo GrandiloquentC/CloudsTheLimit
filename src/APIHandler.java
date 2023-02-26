@@ -8,6 +8,11 @@ public class APIHandler {
     final static String apiKeyDatabase = "7ccb94ab-bf8f-40f5-b841-49457a939a25";
     final static String apiKeyVerif = "594d6475-8cfa-4ed5-8b5c-26891507bb64";
     final static String webbase = "http://192.168.68.93:8000";
+    final static OkHttpClient client = new OkHttpClient().newBuilder()
+    .connectTimeout(30, TimeUnit.SECONDS)
+    .writeTimeout(30, TimeUnit.SECONDS)
+    .readTimeout(30, TimeUnit.SECONDS)
+    .build();
 
     /*
      * Adds an image to the database.
@@ -15,11 +20,7 @@ public class APIHandler {
      * @param subject - Identity of person images are being added to (will create if does not exist)
      */
     public static String addImage(File imagefile, String subject) throws IOException {
-        OkHttpClient client = new OkHttpClient().newBuilder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build();
+
 
             RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("file","img.jpg",
@@ -43,14 +44,9 @@ public class APIHandler {
             return json.get("image_id").toString();
     }
 
-    public static boolean renameSubject(String subject, String name) throws IOException {
-        OkHttpClient client = new OkHttpClient().newBuilder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build();
-
-            RequestBody body = RequestBody.create("{\"subject\": \"" + name + "\"}", MediaType.get("application/json; charset=utf-8"));
+    public static boolean renameSubject(String subject, String updatedName) throws IOException {
+        
+            RequestBody body = RequestBody.create("{\"subject\": \"" + updatedName + "\"}", MediaType.get("application/json; charset=utf-8"));
 
             Request request = new Request.Builder()
             .url(webbase + "/api/v1/recognition/subjects/" + subject)
@@ -68,9 +64,56 @@ public class APIHandler {
             return json.get("updated").toString() == "true";
     }
 
+    public static boolean verify(File compare, String subject, Double _threshold) throws IOException{
+
+            Request request = new Request.Builder()
+            .url(webbase + "/api/v1/recognition/faces?subject=" + subject)
+            .addHeader("x-api-key", apiKeyDatabase)
+            .build();
+            
+            Response response = client.newCall(request).execute();
+
+            if (!response.isSuccessful()) {
+                return false;
+            }
+            JSONObject json = new JSONObject(response.body().string());
+            JSONArray faces = (JSONArray) json.get("faces");
+            String[] imageids = new String[json.getInt("total_elements")];
+            for (int i = 0; i < json.getInt("total_elements"); i++) {
+                imageids[i] = ((JSONObject) faces.get(i)).getString("image_id");
+            }
+
+            for (String id : imageids) {
+                RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
+                .addFormDataPart("file","img.jpg",
+                    RequestBody.create(compare, MediaType.parse("application/octet-stream"))
+                    )
+                .build();
+
+                request = new Request.Builder()
+                .url(webbase + "/api/v1/recognition/faces/" + id + "/verify?face_plugins=pose")
+                .method("POST", body)
+                .addHeader("Content-Type", "multipart/form-data")
+                .addHeader("x-api-key", apiKeyDatabase)
+                .build();
+
+                response = client.newCall(request).execute();
+
+                json = new JSONObject(response.body().string());
+                double similarity = ((JSONObject)((JSONArray)json.get("result")).get(0)).getDouble("similarity");
+                System.out.println(similarity);
+
+                if (!(similarity >= _threshold)) {
+                    return false;
+                }
+            }
+            return true;
+    }
+
     public static void main(String[] args) throws Exception {
-            System.out.println(addImage(new File("src/calvin.jpg"), "a"));
-            System.out.println(renameSubject("Calvin", "Alex"));
+        System.out.println(verify(new File("src/assets/robert.jpg"), "Calvin", 0.97));
+            //System.out.println(addImage(new File("src/calvin.jpg"), "a"));
+            //System.out.println(renameSubject("Calvin", "Alex"));
             /*File file = new File("C:\\Users\\overk\\OneDrive\\Documents\\GitHub\\CloudsTheLimit\\src\\img.jpg");
 
             OkHttpClient client = new OkHttpClient().newBuilder()
