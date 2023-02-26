@@ -1,13 +1,11 @@
-import org.json.*;
-import org.json.simple.*;
 import org.json.simple.parser.*;
 
 import java.io.*;
 
 public class PersistentStorage {
-    final static String relativePath = "src/database.json";
+    String relativePath;
 
-    public static org.json.simple.JSONObject readFile() throws IOException, ParseException {
+    public org.json.simple.JSONObject readFile() throws IOException, ParseException {
         
         JSONParser parser = new JSONParser();
 
@@ -16,17 +14,21 @@ public class PersistentStorage {
         return main;
     }
 
-    public static void writeToFile(org.json.JSONObject towrite) throws IOException {
+    public void writeToFile(org.json.JSONObject towrite) throws IOException {
         FileWriter writer = new FileWriter(new File(relativePath));
         writer.write(towrite.toString());
         writer.flush();
         writer.close();
     }
 
+    public PersistentStorage(String _relativePath) {
+        this.relativePath = _relativePath;
+    }
+
     public static void main(String[] args) throws Exception {
-        org.json.simple.JSONObject a = readFile();
+        /*org.json.simple.JSONObject a = readFile();
         a.put("h", "t");
-        writeToFile(new org.json.JSONObject(a.toJSONString()));
+        writeToFile(new org.json.JSONObject(a.toJSONString()));*/
 
     }
 }

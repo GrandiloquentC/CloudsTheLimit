@@ -11,10 +11,11 @@ public class ExampleWebsite  {
 	static int site_datas  = 3;
 	static ArrayList<SiteUser> site_database = new ArrayList<SiteUser>();
 	static ReallySecureDatabase AuthApp = new ReallySecureDatabase();/////////////////////////////////////////////////////
+	static PersistentStorage store = new PersistentStorage("src/websitedatabase.json");
 	
 	
 	public static void init() throws IOException, org.json.simple.parser.ParseException {
-		JSONObject main = new JSONObject(PersistentStorage.readFile().toJSONString());
+		JSONObject main = new JSONObject(store.readFile().toJSONString());
 		JSONArray users = main.getJSONArray("Users");
 		for (int i = 0; i < users.length(); i++) {
 			JSONObject user = users.getJSONObject(i);
@@ -33,7 +34,7 @@ public class ExampleWebsite  {
 			users.put(userobj);
 		}
 		topass.put("Users", users);
-		PersistentStorage.writeToFile(topass);
+		store.writeToFile(topass);
 	}
 
 	public static void main(String[] args) throws Exception {
@@ -44,13 +45,13 @@ public class ExampleWebsite  {
         //    site_database.get(i).hashed_pin = "";
         //}
         
-        add_user("Michael", "M@gmail.com","1111");
+        /*add_user("Michael", "M@gmail.com","1111");
         add_user("Sichael","S@gmail.com" ,"3333");
         add_user("Yichael", "T@gmail.com","4444");
         add_user("Snichael","Sn@gmail.com" ,"5555");
         add_user("Crichael", "Cr@gmail.com","6666");
         add_user("Michael", "hacker@gmail.com","7777");
-        add_user("Michaels brother", "M@gmail.com", "2904");
+        add_user("Michaels brother", "M@gmail.com", "2904");*/
         
         System.out.println("The web database is: ");
         for (int i = 0; i < site_database.size(); i++) {
@@ -113,7 +114,8 @@ public class ExampleWebsite  {
 		}
 		System.out.println(name);
 	}
-	public static void add_user(String new_name, String email, String pin) throws IOException {///////////////////////////////////////////////////////
+
+	public static void add_user(String new_name, String email, String pin) throws IOException{///////////////////////////////////////////////////////
 		if (!new_name.equals("") ){
 			System.out.print("Site | Attempting to add account \"");
 			System.out.print(new_name);
@@ -135,19 +137,23 @@ public class ExampleWebsite  {
 					return;
 				}
 			}
+			try {
+			AuthApp.add_user(email);
 			site_database.add(new SiteUser(new_name, email, pin));
+			} catch (AssertionError e) {
+				System.out.println("Site | The account \"" + new_name + "\" could not be added due to difficulties verifying your email.");
+			}
 			save();
-			//AuthApp.add_user(new_name, email, camera);//////////////////////////////////////////////////////////////////////////////
+			////////////////////////////////////////////////////////////////////////////////
 		} else {
 			System.out.print("Site | Account name invalid");
 		}
 	}
 	
-	public static void update_user(String[] creds, String replace_name, String replace_pin) { //creds = name, email, pin
+	public static void update_user(String[] creds, String replace_name, String replace_pin) throws IOException { //creds = name, email, pin
 		if (!replace_name.equals("") ){
 			System.out.print("Site | Attempting to update account \"");
 			System.out.println("\"");
-			boolean valid = true;
 			for (int i = 0; i < site_database.size(); i++) {
 				if (site_database.get(i).info().equals(creds)) {
 					site_database.get(i).name = replace_name;
@@ -155,6 +161,7 @@ public class ExampleWebsite  {
 					//AuthApp.update_user(creds, replace_name);
 				}
 			}
+			save();
 
 		} else {
 			System.out.print("Site | Account name invalid");

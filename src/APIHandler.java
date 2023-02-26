@@ -2,6 +2,7 @@ import okhttp3.*;
 import java.io.*;
 import java.util.concurrent.TimeUnit;
 import org.json.*;
+import java.util.*;
 
 public class APIHandler {
     
@@ -20,6 +21,7 @@ public class APIHandler {
         this.threshold = _threshold;
     }
 
+    // subject modifications
     /*
      * Adds an image to the database.
      * @param imagefile - File to add
@@ -53,7 +55,9 @@ public class APIHandler {
 
     public boolean renameSubject(String subject, String updatedName) throws IOException {
         
-        assert assertSubjectExists(subject);
+        if (!assertSubjectExists(subject)) {
+            return false;
+        }
 
         RequestBody body = RequestBody.create("{\"subject\": \"" + updatedName + "\"}", MediaType.get("application/json; charset=utf-8"));
 
@@ -75,7 +79,9 @@ public class APIHandler {
 
     public boolean removeSubject(String subject) throws IOException {
 
-        assert assertSubjectExists(subject);
+        if (!assertSubjectExists(subject)) {
+            return true;
+        }
 
         RequestBody body = RequestBody.create("{\"subject\": \"" + subject + "\"}", MediaType.get("application/json; charset=utf-8"));
 
@@ -93,6 +99,28 @@ public class APIHandler {
         }
         JSONObject json = new JSONObject(response.body().string());
         return json.get("subject").toString().equals(subject);
+    }
+
+    public boolean removeAllPhotosOfSubject(String subject) throws IOException {
+        if (!assertSubjectExists(subject)) {
+            return true;
+        }
+
+        RequestBody body = RequestBody.create("{\"subject\": \"" + subject + "\"}", MediaType.get("application/json; charset=utf-8"));
+
+        Request request = new Request.Builder()
+        .url(webbase + "/api/v1/recognition/faces?subject=" + subject)
+        .method("DELETE", body)
+        .addHeader("x-api-key", apiKeyDatabase)
+        .build();
+        
+        Response response = client.newCall(request).execute();
+
+        if (!response.isSuccessful()) {
+            return false;
+        }
+        JSONObject json = new JSONObject(response.body().string());
+        return json.getInt("deleted") == 1;
     }
 
     // this could be a binary search if it really needed to be
@@ -120,14 +148,24 @@ public class APIHandler {
         return false;
     }
 
+    // pose sequencing
 
+    public ArrayList<ReallySecureDatabase.Pose> getPoseSequence() {
+        // fix this later
+        return new ArrayList<>();
+    };
+
+    // verification
     /*
         * Verifies that the image is in fact an image of the subject.
         * @param _threshold Value needed to return success.
         * @param compare File object of the image.
         */
     public boolean verify(File compare, String subject) throws IOException {
-        assert assertSubjectExists(subject);
+        if (!assertSubjectExists(subject)) {
+            System.out.println("Subject does not exist.");
+            return false;
+        }
 
         // request: fetches all image ids of target subject
         Request request = new Request.Builder()
@@ -153,6 +191,7 @@ public class APIHandler {
         // iterate over image ids 
         double average = 0;
         int testnum = 1;
+        System.out.println();
         for (String id : imageids) {
             try {
                 // payload: image 
@@ -209,6 +248,7 @@ public class APIHandler {
     public static void main(String[] args) throws Exception {
         APIHandler handler = new APIHandler(0.97);
         System.out.println(handler.assertSubjectExists("Jake"));
+        handler.removeAllPhotosOfSubject("Calvin");
 
     }
 }
