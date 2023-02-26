@@ -1,6 +1,7 @@
 import java.util.*;
 import java.io.*;
 import org.json.*;
+
 public class ReallySecureDatabase {
 	//michaels ip: 192.168.68.93
 	// port = 8000
@@ -15,7 +16,13 @@ public class ReallySecureDatabase {
 		JSONArray users = main.getJSONArray("Users");
 		for (int i = 0; i < users.length(); i++) {
 			JSONObject user = users.getJSONObject(i);
-			add_user(user.getString("email"));
+			ArrayList<PoseTracking.Pose> poses = new ArrayList<>();
+			JSONArray posesobj = user.getJSONArray("poses");
+			for (int j = 0; j < 5; j++) {
+				poses.add(new PoseTracking.Pose(posesobj.getJSONObject(i).getDouble("roll"), posesobj.getJSONObject(i).getDouble("pitch"), 
+				posesobj.getJSONObject(i).getDouble("yaw")));
+			}
+			my_database.add(new User(user.getString("email"), poses));
 		}
 	}
 
@@ -26,6 +33,15 @@ public class ReallySecureDatabase {
 			for (User user : my_database) {
 				JSONObject userobj = new JSONObject();
 				userobj.put("email", user.email);
+				JSONArray poses = new JSONArray();
+				for (int i = 0; i < 5; i++) {
+					JSONObject pose = new JSONObject();
+					pose.put("roll", user.pose_sequence.get(i).roll);
+					pose.put("pitch", user.pose_sequence.get(i).pitch);
+					pose.put("yaw", user.pose_sequence.get(i).yaw);
+					poses.put(pose);
+				}
+				userobj.put("poses", poses);
 				users.put(userobj);
 			}
 			topass.put("Users", users);
@@ -36,8 +52,9 @@ public class ReallySecureDatabase {
 	}
 
 	
-	public static void main(String[] args) {
-		add_user("Alex");
+	public static void main(String[] args) throws Exception {
+		init();
+		verify("Alex");
     }
 	
 	/*public static String retrieve_face(String email) {
@@ -60,9 +77,9 @@ public class ReallySecureDatabase {
 				return my_database.get(j);
 			}
 		}
-		return new User("null");
+		return new User("null", new ArrayList<>());
 	}
-	public static void add_user(String email) throws AssertionError {
+	public static void add_user(String email) throws AssertionError, IOException {
 		System.out.print("App | Attempting to add account \"");
 		System.out.print(email);
 		System.out.println("\"");
@@ -71,15 +88,41 @@ public class ReallySecureDatabase {
 			System.out.println("Email ownership could not be validated.");
 			throw new AssertionError("Email ownership could not be validated.");
 		}
-		
-		// add POSE functions here when available
-		try {
-			appAPI.addImage(camera_view("camera"), email);
-		} catch (IOException e) {
-			System.out.println("Image could not be found.");
-		} 
-		my_database.add(new User(email));
-		save();
+
+		if (!appAPI.assertSubjectExists(email)) {
+			my_database.add(new User(email, fetch_poses(email)));
+			save();
+		}
+	}
+
+	public static boolean verify(String subject) {
+		final int points = 5;
+		final double threshold = 30;
+		final long delay = 200;
+		ArrayList<PoseTracking.Pose> poses = new ArrayList<>();
+		for (int i = 0; i < points; i++) {
+			try {
+				if (!appAPI.verifyWithPose(camera_view("dummy"), subject, poses)) {
+					return false;
+				}
+				Thread.sleep(delay);
+			} catch (Exception e) {}
+		}
+		return PoseTracking.compare(retrieveUserByEmail(subject).pose_sequence, poses, threshold);
+	}
+
+	public static ArrayList<PoseTracking.Pose> fetch_poses(String subject) {
+		final int points = 5;
+		final long delay = 200;
+		ArrayList<PoseTracking.Pose> poses = new ArrayList<>();
+		for (int i = 0; i < points; i++) {
+			try {
+				poses.add(appAPI.getPose(camera_view(subject)));
+				appAPI.addImage(camera_view(subject), subject);
+				Thread.sleep(delay);
+			} catch (Exception e) {}
+		}
+		return poses;
 	}
 
 	public static boolean assertOwnsEmail(String email) {
@@ -117,9 +160,11 @@ public class ReallySecureDatabase {
 */	
 	public static class User {
 		String email;
+		ArrayList<PoseTracking.Pose> pose_sequence;
 
-		public User(String _email) {
+		public User(String _email, ArrayList<PoseTracking.Pose> _pose_sequence) {
 			this.email = _email;
+			this.pose_sequence = _pose_sequence;
 		}
 		
 		//public boolean check(String pwd) {
@@ -137,17 +182,7 @@ public class ReallySecureDatabase {
 		}
 	}
 
-	public static class Pose {
-		double roll;
-		double pitch;
-		double raw;
-
-		public Pose(double _roll, double _pitch, double _raw) {
-			this.roll = _roll;
-			this.pitch = _pitch;
-			this.raw = _raw;
-		}
-	}
+	
 
 	
 }

@@ -2,12 +2,14 @@ import okhttp3.*;
 import java.io.*;
 import java.util.concurrent.TimeUnit;
 import org.json.*;
+
 import java.util.*;
 
 public class APIHandler {
     
     final static String apiKeyDatabase = "7ccb94ab-bf8f-40f5-b841-49457a939a25";
     final static String apiKeyVerif = "594d6475-8cfa-4ed5-8b5c-26891507bb64";
+    final static String apiKeyDetection = "e5be4317-5c39-4e6e-9e09-b7b83d2c35f6";
     final static String webbase = "http://192.168.68.93:8000";
     final static OkHttpClient client = new OkHttpClient().newBuilder()
     .connectTimeout(30, TimeUnit.SECONDS)
@@ -148,12 +150,6 @@ public class APIHandler {
         return false;
     }
 
-    // pose sequencing
-
-    public ArrayList<ReallySecureDatabase.Pose> getPoseSequence() {
-        // fix this later
-        return new ArrayList<>();
-    };
 
     // verification
     /*
@@ -216,7 +212,6 @@ public class APIHandler {
                 // get similarity as double
                 double similarity = ((JSONObject)((JSONArray)json.get("result")).get(0)).getDouble("similarity");
 
-                // add code here to get pose for pose tracking
                 System.out.print("Test " + testnum + ": " + similarity);
                 if (similarity >= this.threshold) {
                     System.out.println(" (passed)");
@@ -243,12 +238,128 @@ public class APIHandler {
         return true;
     }
 
-    
+    public boolean verifyWithPose(File compare, String subject, ArrayList<PoseTracking.Pose> poses) throws IOException {
+        if (!assertSubjectExists(subject)) {
+            System.out.println("Subject does not exist.");
+            return false;
+        }
+
+        // request: fetches all image ids of target subject
+        Request request = new Request.Builder()
+        .url(webbase + "/api/v1/recognition/faces?subject=" + subject)
+        .addHeader("x-api-key", apiKeyDatabase)
+        .build();
+        
+        Response response = client.newCall(request).execute();
+
+        if (!response.isSuccessful()) {
+            return false;
+        }
+
+        // extract all image ids from json
+        JSONObject json = new JSONObject(response.body().string());
+        JSONArray faces = (JSONArray) json.get("faces");
+        int facecount = json.getInt("total_elements");
+        String[] imageids = new String[facecount];
+        for (int i = 0; i < facecount; i++) {
+            imageids[i] = ((JSONObject) faces.get(i)).getString("image_id");
+        }
+
+        // iterate over image ids 
+        double average = 0;
+        int testnum = 1;
+        boolean first = true;
+        System.out.println();
+        for (String id : imageids) {
+            try {
+                // payload: image 
+                RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
+                .addFormDataPart("file",compare.getAbsolutePath(),
+                    RequestBody.create(compare, MediaType.parse("application/octet-stream"))
+                    )
+                .build();
+
+                // request to verify compare matches with target image
+                request = new Request.Builder()
+                .url(webbase + "/api/v1/recognition/faces/" + id + "/verify?face_plugins=pose")
+                .method("POST", body)
+                .addHeader("Content-Type", "multipart/form-data")
+                .addHeader("x-api-key", apiKeyDatabase)
+                .build();
+
+                response = client.newCall(request).execute();
+
+                json = new JSONObject(response.body().string());
+
+                // get similarity as double
+                double similarity = ((JSONObject)((JSONArray)json.get("result")).get(0)).getDouble("similarity");
+
+                // add code here to get pose for pose tracking
+                if (first) {
+                    poses.add(new PoseTracking.Pose(((JSONObject)((JSONArray)json.get("result")).get(0)).getJSONObject("pose").getDouble("roll"), 
+                    ((JSONObject)((JSONArray)json.get("result")).get(0)).getJSONObject("pose").getDouble("pitch"), 
+                    ((JSONObject)((JSONArray)json.get("result")).get(0)).getJSONObject("pose").getDouble("yaw")));
+                first = false;
+                }
+
+                System.out.print("Test " + testnum + ": " + similarity);
+                if (similarity >= this.threshold) {
+                    System.out.println(" (passed)");
+                } else {
+                    System.out.println(" (failed)");
+                }
+                // confirm similarity passes threshold
+                average += similarity;
+                testnum++;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+        average /= facecount;
+        System.out.print("Average Similarity: " + average);
+
+        if (average < this.threshold) {
+            System.out.println(" (failed)");
+            return false;
+        }
+        System.out.println(" (passed)");
+
+        // if similarity passed threshold for all image ids, return true as all checks have succeeded
+        return true;
+    }
+
+    // detection
+    public PoseTracking.Pose getPose(File imagefile) throws IOException {
+
+        // Payload: image
+        RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
+        .addFormDataPart("file",imagefile.getAbsolutePath(),
+            RequestBody.create(imagefile, MediaType.parse("application/octet-stream"))
+            )
+        .build();
+
+        // actual request
+        Request request = new Request.Builder()
+        .url(webbase + "/api/v1/detection/detect?face_plugins=pose")
+        .method("POST", body)
+        .addHeader("Content-Type", "multipart/form-data")
+        .addHeader("x-api-key", apiKeyDetection)
+        .build();
+        
+        Response response = client.newCall(request).execute();
+
+        if (!response.isSuccessful()) {
+            System.out.println(response.code());
+            return new PoseTracking.Pose(1/0, 1/0, 1/0);
+        }
+        JSONObject json = new JSONObject(response.body().string());
+        //System.out.println(json.toString());
+        return new PoseTracking.Pose(((JSONObject)((JSONArray)json.get("result")).get(0)).getJSONObject("pose").getDouble("roll"), 
+        ((JSONObject)((JSONArray)json.get("result")).get(0)).getJSONObject("pose").getDouble("pitch"), 
+        ((JSONObject)((JSONArray)json.get("result")).get(0)).getJSONObject("pose").getDouble("yaw"));
+    }
 
     public static void main(String[] args) throws Exception {
-        APIHandler handler = new APIHandler(0.97);
-        System.out.println(handler.assertSubjectExists("Jake"));
-        handler.removeAllPhotosOfSubject("Calvin");
 
     }
 }

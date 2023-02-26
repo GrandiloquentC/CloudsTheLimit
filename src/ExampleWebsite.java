@@ -39,6 +39,7 @@ public class ExampleWebsite  {
 
 	public static void main(String[] args) throws Exception {
 		init();
+		AuthApp.init();
 		//for (int i = 0; i < site_users; i++) {
         //    site_database.get(i).name = "";
         //    site_database.get(i).pin = "";
