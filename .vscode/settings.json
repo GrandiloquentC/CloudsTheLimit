@@ -2,11 +2,20 @@
     "java.project.referencedLibraries": {
         "include": [
             "lib/**/*.jar",
-            "Emp Hackathon Code/lib/**.jar"
+            "Emp Hackathon Code/lib/**.jar",
+            "Api Access/API Access/lib/**/*.jar"
+        ],
+        "exclude": [
+            "Api Access/API Access/lib/annotations-13.0.jar",
+            "Api Access/API Access/lib/kotlin-stdlib-1.7.10.jar",
+            "Api Access/API Access/lib/kotlin-stdlib-common-1.7.10.jar",
+            "Api Access/API Access/lib/kotlin-stdlib-jdk7-1.6.20.jar",
+            "Api Access/API Access/lib/kotlin-stdlib-jdk8-1.6.20.jar",
+            "Api Access/API Access/lib/okhttp-4.10.0.jar"
         ]
     },
     "java.project.sourcePaths": [
-        "Emp Hackathon Code/src"
+        "src"
     ],
     "java.dependency.packagePresentation": "hierarchical"
 }

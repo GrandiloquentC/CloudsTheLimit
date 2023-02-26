@@ -19,7 +19,7 @@ public class App {
     }*/
 
     public static void main(String[] args) throws Exception {
-            File file = new File("C:\\Users\\overk\\OneDrive\\Documents\\GitHub\\CloudsTheLimit\\Api Access\\API Access\\src\\img.jpg");
+            File file = new File("C:\\Users\\overk\\OneDrive\\Documents\\GitHub\\CloudsTheLimit\\src\\img.jpg");
 
             OkHttpClient client = new OkHttpClient().newBuilder()
             .connectTimeout(30, TimeUnit.SECONDS)
