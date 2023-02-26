@@ -95,6 +95,7 @@ public class APIHandler {
         return json.get("subject").toString().equals(subject);
     }
 
+    // this could be a binary search if it really needed to be
     public boolean assertSubjectExists(String subject) throws IOException {
 
         Request request = new Request.Builder()
@@ -208,37 +209,6 @@ public class APIHandler {
     public static void main(String[] args) throws Exception {
         APIHandler handler = new APIHandler(0.97);
         System.out.println(handler.assertSubjectExists("Jake"));
-            //System.out.println(addImage(new File("src/calvin.jpg"), "a"));
-            //System.out.println(renameSubject("Calvin", "Alex"));
-            /*File file = new File("C:\\Users\\overk\\OneDrive\\Documents\\GitHub\\CloudsTheLimit\\src\\img.jpg");
-
-            OkHttpClient client = new OkHttpClient().newBuilder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build();
-
-            MediaType mediaType = MediaType.parse("multipart/form-data");
-            
-            RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
-            .addFormDataPart("file","img.jpg",
-                RequestBody.create(file, MediaType.parse("application/octet-stream"))
-                )
-            .build();
-
-            Request request = new Request.Builder()
-            .url("http://localhost:8000/api/v1/recognition/recognize?limit=0&det_prob_threshold=0.0&prediction_count=1&face_plugins=landmarks,gender,age,calculator,mask&status=true")
-            .method("POST", body)
-            .addHeader("Content-Type", "multipart/form-data")
-            .addHeader("x-api-key", "3bc74a05-9733-4ef2-a1e2-2a5a26d6c7e3")
-            .build();
-            
-            Response response = client.newCall(request).execute();
-
-            File h = new File("src/img.jpg");
-            System.out.println(h.getName());
-            System.out.println(response.code());
-            System.out.println(response.body().byteString());*/
 
     }
 }
