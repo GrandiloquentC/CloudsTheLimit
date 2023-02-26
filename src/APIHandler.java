@@ -14,12 +14,18 @@ public class APIHandler {
     .readTimeout(30, TimeUnit.SECONDS)
     .build();
 
+    double threshold;
+
+    public APIHandler(double _threshold) {
+        this.threshold = _threshold;
+    }
+
     /*
      * Adds an image to the database.
      * @param imagefile - File to add
      * @param subject - Identity of person images are being added to (will create if does not exist)
      */
-    public static String addImage(File imagefile, String subject) throws IOException {
+    public String addImage(File imagefile, String subject) throws IOException {
 
         // Payload: image
         RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
@@ -45,32 +51,82 @@ public class APIHandler {
         return json.get("image_id").toString();
     }
 
-    public static boolean renameSubject(String subject, String updatedName) throws IOException {
+    public boolean renameSubject(String subject, String updatedName) throws IOException {
         
-            RequestBody body = RequestBody.create("{\"subject\": \"" + updatedName + "\"}", MediaType.get("application/json; charset=utf-8"));
+        assert assertSubjectExists(subject);
 
-            Request request = new Request.Builder()
-            .url(webbase + "/api/v1/recognition/subjects/" + subject)
-            .method("PUT", body)
-            .addHeader("Content-Type", "application/json")
-            .addHeader("x-api-key", apiKeyDatabase)
-            .build();
-            
-            Response response = client.newCall(request).execute();
+        RequestBody body = RequestBody.create("{\"subject\": \"" + updatedName + "\"}", MediaType.get("application/json; charset=utf-8"));
 
-            if (!response.isSuccessful()) {
-                return false;
-            }
-            JSONObject json = new JSONObject(response.body().string());
-            return json.get("updated").toString() == "true";
+        Request request = new Request.Builder()
+        .url(webbase + "/api/v1/recognition/subjects/" + subject)
+        .method("PUT", body)
+        .addHeader("Content-Type", "application/json")
+        .addHeader("x-api-key", apiKeyDatabase)
+        .build();
+        
+        Response response = client.newCall(request).execute();
+
+        if (!response.isSuccessful()) {
+            return false;
+        }
+        JSONObject json = new JSONObject(response.body().string());
+        return json.get("updated").toString().equals("true");
     }
+
+    public boolean removeSubject(String subject) throws IOException {
+
+        assert assertSubjectExists(subject);
+
+        RequestBody body = RequestBody.create("{\"subject\": \"" + subject + "\"}", MediaType.get("application/json; charset=utf-8"));
+
+        Request request = new Request.Builder()
+        .url(webbase + "/api/v1/recognition/subjects/" + subject)
+        .method("DELETE", body)
+        .addHeader("Content-Type", "application/json")
+        .addHeader("x-api-key", apiKeyDatabase)
+        .build();
+        
+        Response response = client.newCall(request).execute();
+
+        if (!response.isSuccessful()) {
+            return false;
+        }
+        JSONObject json = new JSONObject(response.body().string());
+        return json.get("subject").toString().equals(subject);
+    }
+
+    public boolean assertSubjectExists(String subject) throws IOException {
+
+        Request request = new Request.Builder()
+        .url(webbase + "/api/v1/recognition/subjects")
+        .addHeader("Content-Type", "application/json")
+        .addHeader("x-api-key", apiKeyDatabase)
+        .build();
+        
+        Response response = client.newCall(request).execute();
+
+        if (!response.isSuccessful()) {
+            return false;
+        }
+
+        JSONObject json = new JSONObject(response.body().string());
+        JSONArray subjects = (JSONArray) json.get("subjects");
+        for (int i = 0; i < subjects.length(); i++) {
+            if (subjects.get(i).toString().equalsIgnoreCase(subject)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     /*
         * Verifies that the image is in fact an image of the subject.
         * @param _threshold Value needed to return success.
         * @param compare File object of the image.
         */
-    public static boolean verify(File compare, String subject, Double _threshold) throws IOException {
+    public boolean verify(File compare, String subject) throws IOException {
+        assert assertSubjectExists(subject);
 
         // request: fetches all image ids of target subject
         Request request = new Request.Builder()
@@ -87,12 +143,15 @@ public class APIHandler {
         // extract all image ids from json
         JSONObject json = new JSONObject(response.body().string());
         JSONArray faces = (JSONArray) json.get("faces");
-        String[] imageids = new String[json.getInt("total_elements")];
-        for (int i = 0; i < json.getInt("total_elements"); i++) {
+        int facecount = json.getInt("total_elements");
+        String[] imageids = new String[facecount];
+        for (int i = 0; i < facecount; i++) {
             imageids[i] = ((JSONObject) faces.get(i)).getString("image_id");
         }
 
         // iterate over image ids 
+        double average = 0;
+        int testnum = 1;
         for (String id : imageids) {
             try {
                 // payload: image 
@@ -102,6 +161,7 @@ public class APIHandler {
                     )
                 .build();
 
+                // request to verify compare matches with target image
                 request = new Request.Builder()
                 .url(webbase + "/api/v1/recognition/faces/" + id + "/verify?face_plugins=pose")
                 .method("POST", body)
@@ -117,19 +177,37 @@ public class APIHandler {
                 double similarity = ((JSONObject)((JSONArray)json.get("result")).get(0)).getDouble("similarity");
 
                 // add code here to get pose for pose tracking
-
-                if (!(similarity >= _threshold)) {
-                    return false;
+                System.out.print("Test " + testnum + ": " + similarity);
+                if (similarity >= this.threshold) {
+                    System.out.println(" (passed)");
+                } else {
+                    System.out.println(" (failed)");
                 }
+                // confirm similarity passes threshold
+                average += similarity;
+                testnum++;
             } catch (Exception e) {
                 return false;
             }
         }
+        average /= facecount;
+        System.out.print("Average Similarity: " + average);
+
+        if (average < this.threshold) {
+            System.out.println(" (failed)");
+            return false;
+        }
+        System.out.println(" (passed)");
+
+        // if similarity passed threshold for all image ids, return true as all checks have succeeded
         return true;
     }
 
+    
+
     public static void main(String[] args) throws Exception {
-        System.out.println(verify(new File("src/assets/calvin.jpg"), "Calvin", 0.97));
+        APIHandler handler = new APIHandler(0.97);
+        System.out.println(handler.assertSubjectExists("Jake"));
             //System.out.println(addImage(new File("src/calvin.jpg"), "a"));
             //System.out.println(renameSubject("Calvin", "Alex"));
             /*File file = new File("C:\\Users\\overk\\OneDrive\\Documents\\GitHub\\CloudsTheLimit\\src\\img.jpg");
