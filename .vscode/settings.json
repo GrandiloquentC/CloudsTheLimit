@@ -1,0 +1,12 @@
+{
+    "java.project.referencedLibraries": {
+        "include": [
+            "lib/**/*.jar",
+            "Emp Hackathon Code/lib/**.jar"
+        ]
+    },
+    "java.project.sourcePaths": [
+        "Emp Hackathon Code/src"
+    ],
+    "java.dependency.packagePresentation": "hierarchical"
+}
