@@ -9,8 +9,11 @@ public class APIHandler {
     final static String apiKeyVerif = "594d6475-8cfa-4ed5-8b5c-26891507bb64";
     final static String webbase = "http://192.168.68.93:8000";
 
-
-
+    /*
+     * Adds an image to the database.
+     * @param imagefile - File to add
+     * @param subject - Identity of person images are being added to (will create if does not exist)
+     */
     public static String addImage(File imagefile, String subject) throws IOException {
         OkHttpClient client = new OkHttpClient().newBuilder()
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -32,12 +35,42 @@ public class APIHandler {
             .build();
             
             Response response = client.newCall(request).execute();
-            //return response.message();
+
+            if (!response.isSuccessful()) {
+                return "Request failed with code " + Integer.toString(response.code()) + ".";
+            }
             JSONObject json = new JSONObject(response.body().string());
             return json.get("image_id").toString();
     }
+
+    public static boolean renameSubject(String subject, String name) throws IOException {
+        OkHttpClient client = new OkHttpClient().newBuilder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build();
+
+            RequestBody body = RequestBody.create("{\"subject\": \"" + name + "\"}", MediaType.get("application/json; charset=utf-8"));
+
+            Request request = new Request.Builder()
+            .url(webbase + "/api/v1/recognition/subjects/" + subject)
+            .method("PUT", body)
+            .addHeader("Content-Type", "application/json")
+            .addHeader("x-api-key", apiKeyDatabase)
+            .build();
+            
+            Response response = client.newCall(request).execute();
+
+            if (!response.isSuccessful()) {
+                return false;
+            }
+            JSONObject json = new JSONObject(response.body().string());
+            return json.get("updated").toString() == "true";
+    }
+
     public static void main(String[] args) throws Exception {
-            System.out.println(addImage(new File("src/calvin.jpg"), "Calvin"));
+            System.out.println(addImage(new File("src/calvin.jpg"), "a"));
+            System.out.println(renameSubject("Calvin", "Alex"));
             /*File file = new File("C:\\Users\\overk\\OneDrive\\Documents\\GitHub\\CloudsTheLimit\\src\\img.jpg");
 
             OkHttpClient client = new OkHttpClient().newBuilder()
