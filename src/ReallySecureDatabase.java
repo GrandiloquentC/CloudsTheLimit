@@ -19,8 +19,8 @@ public class ReallySecureDatabase {
 			ArrayList<PoseTracking.Pose> poses = new ArrayList<>();
 			JSONArray posesobj = user.getJSONArray("poses");
 			for (int j = 0; j < 5; j++) {
-				poses.add(new PoseTracking.Pose(posesobj.getJSONObject(i).getDouble("roll"), posesobj.getJSONObject(i).getDouble("pitch"), 
-				posesobj.getJSONObject(i).getDouble("yaw")));
+				poses.add(new PoseTracking.Pose(posesobj.getJSONObject(j).getDouble("roll"), posesobj.getJSONObject(j).getDouble("pitch"), 
+				posesobj.getJSONObject(j).getDouble("yaw")));
 			}
 			my_database.add(new User(user.getString("email"), poses));
 		}
@@ -68,6 +68,9 @@ public class ReallySecureDatabase {
 	
 	public static File camera_view(String camera) {
 		// DUMMY FUNCTION have this return a file and use it to take an image and stuff
+		if (camera.equals("hacker@gmail.com")) {
+			return new File("src/assets/robert.jpg");
+		}
 		return new File("src/assets/calvin.jpg");
 	}
 	
@@ -102,7 +105,7 @@ public class ReallySecureDatabase {
 		ArrayList<PoseTracking.Pose> poses = new ArrayList<>();
 		for (int i = 0; i < points; i++) {
 			try {
-				if (!appAPI.verifyWithPose(camera_view("dummy"), subject, poses)) {
+				if (!appAPI.verifyWithPose(camera_view(subject), subject, poses)) {
 					return false;
 				}
 				Thread.sleep(delay);
@@ -145,13 +148,8 @@ public class ReallySecureDatabase {
 		} 
 	}
 	
-	public static boolean check(String email, File face) {
-		try {
-			return appAPI.verify(face, email);
-		} catch (IOException e) {
-			System.out.println("Image could not be found.");
-			return false;
-		} 
+	public static boolean check(String email) {
+		return verify(email);
 	}
 /*	public static String hash (String pin, String email){
 		return pin + "__hash__" + email;

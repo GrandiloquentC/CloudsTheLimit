@@ -19,8 +19,9 @@ public class ExampleWebsite  {
 		JSONArray users = main.getJSONArray("Users");
 		for (int i = 0; i < users.length(); i++) {
 			JSONObject user = users.getJSONObject(i);
-			add_user(user.getString("name"), user.getString("email"), user.getString("pin"));
+			site_database.add(new SiteUser(user.getString("name"), user.getString("email"), user.getString("pin")));
 		}
+		AuthApp.init();
 	}
 
 	public static void save() throws IOException {
@@ -39,7 +40,6 @@ public class ExampleWebsite  {
 
 	public static void main(String[] args) throws Exception {
 		init();
-		AuthApp.init();
 		//for (int i = 0; i < site_users; i++) {
         //    site_database.get(i).name = "";
         //    site_database.get(i).pin = "";
@@ -82,6 +82,15 @@ public class ExampleWebsite  {
 		}
 		return "Site Error: No such user";
 	}
+
+	public static String retrieve_name_from_email(String email) {
+		for (int j = 0; j < site_database.size(); j++) {
+			if (site_database.get(j).email.equals(email)) {
+				return site_database.get(j).name;
+			}
+		}
+		return "Site Error: No such user";
+	}
 	
 	public static String retrieve_pass_from_name(String name) {
 		for (int j = 0; j < site_database.size(); j++) {
@@ -101,11 +110,11 @@ public class ExampleWebsite  {
 		return "Site Error: No such user";
 	}
 	
-	public static void attempt_login (String name, String pin, String camera) {
-		String email = retrieve_email(name);
+	public static void attempt_login (String email, String pin, String camera) {
+		String name = retrieve_name_from_email(email);
 		if (retrieve_pass_from_email(email).equals(pin)) {
 			System.out.print("Site | Correct password! Moving on to 2FA. ");
-			if (AuthApp.check(email, AuthApp.camera_view(camera))) {
+			if (AuthApp.check(email)) {
 				System.out.print("Correct face! Welcome, "); //////////////////////TO DO: ACTUALLY LOG IN
 			} else {
 				System.out.print("Wrong face, ");
@@ -114,6 +123,15 @@ public class ExampleWebsite  {
 			System.out.print("Site | Wrong password, ");
 		}
 		System.out.println(name);
+	}
+
+	public static void attempt_login_no2fa (String email, String pin) {
+		if (retrieve_pass_from_email(email).equals(pin)) {
+			System.out.print("Site | Correct password! Welcome ");
+		} else {
+			System.out.print("Site | Wrong password, ");
+		}
+		System.out.println(retrieve_name_from_email(email));
 	}
 
 	public static void add_user(String new_name, String email, String pin) throws IOException{///////////////////////////////////////////////////////
